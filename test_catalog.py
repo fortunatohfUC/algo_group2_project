@@ -1,6 +1,5 @@
-"""Person 1 tests. From the project root: python -m unittest discover -s tests -v.
+"""Run catalog test from the project root: python -m unittest discover -s tests -v.
 
-These check Vern's model and dictionary helpers, not teammates' indexes.
 """
 
 import unittest
