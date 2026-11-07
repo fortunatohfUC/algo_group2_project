@@ -1,4 +1,4 @@
-"""Person 1 dictionary helpers. LibraryInventory owns and passes both dictionaries.
+"""Dictionary helpers. LibraryInventory owns and passes both dictionaries.
 
 books maps an internal ID to a Book. isbn_index maps an ISBN to an internal ID.
 These helpers do not change the trie, stock or year indexes.
