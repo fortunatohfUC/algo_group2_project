@@ -56,6 +56,39 @@ class LibraryInventoryIntegrationTests(unittest.TestCase):
         self.assertIs(self.inventory.get_book("LIB-003"), book)
         self.assertEqual(self.inventory.isbn_index, {})
 
+    def test_invalid_catalog_queries_follow_shared_validation(self) -> None:
+        self.assertIsNone(self.inventory.get_book_by_isbn(None))
+        with self.assertRaises(ValueError):
+            self.inventory.get_book_by_isbn("bad")
+        with self.assertRaises(ValueError):
+            self.inventory.get_book([])
+        with self.assertRaises(ValueError):
+            self.inventory.update_quantity([], 1)
+
+    def test_invalid_record_leaves_all_indexes_empty(self) -> None:
+        with self.assertRaises(ValueError):
+            self.inventory.add_book({"id": "LIB-003"})
+
+        self.assertEqual(self.inventory.books, {})
+        self.assertEqual(self.inventory.isbn_index, {})
+        self.assertEqual(self.inventory.search_title("the"), [])
+        self.assertEqual(self.inventory.in_stock, set())
+        self.assertEqual(self.inventory.year_buckets, {})
+
+    def test_inconsistent_isbn_stops_removal_before_secondary_changes(self) -> None:
+        self.inventory.add_book(self.hobbit)
+        self.inventory.isbn_index[self.hobbit.isbn] = "WRONG-ID"
+
+        with self.assertRaises(ValueError):
+            self.inventory.remove_book(self.hobbit.id)
+
+        self.assertIs(self.inventory.get_book(self.hobbit.id), self.hobbit)
+        self.assertEqual(self.inventory.search_title("the hobbit"), [self.hobbit])
+        self.assertEqual(self.inventory.in_stock, {self.hobbit.id})
+        self.assertEqual(self.inventory.year_buckets, {1937: {self.hobbit.id}})
+        self.assertEqual(self.inventory.sorted_years, [1937])
+        self.assertEqual(self.inventory.isbn_index[self.hobbit.isbn], "WRONG-ID")
+
     def test_duplicate_id_and_normalized_isbn_leave_state_unchanged(self) -> None:
         self.inventory.add_book(self.hobbit)
         duplicate_id = Book(

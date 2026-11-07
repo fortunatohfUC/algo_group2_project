@@ -2,15 +2,13 @@
 
 from dataclasses import replace
 
+import catalog
 import indexes
 from models import (
     Book,
-    DuplicateID,
-    InvalidQuantity,
-    NotFound,
-    normalize_isbn,
     normalize_text,
     validate_isbn,
+    validate_quantity,
 )
 from trie import Trie
 
@@ -34,11 +32,6 @@ class LibraryInventory:
         self.sorted_years: list[int] = []
 
     @staticmethod
-    def _validate_quantity(quantity: int) -> None:
-        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity < 0:
-            raise InvalidQuantity("Quantity must be a nonnegative integer")
-
-    @staticmethod
     def _validate_book_fields(book: Book) -> tuple[str, str, str]:
         required_text = {
             "id": book.id,
@@ -53,7 +46,7 @@ class LibraryInventory:
         if isinstance(book.year, bool) or not isinstance(book.year, int):
             raise ValueError("year must be an integer")
 
-        LibraryInventory._validate_quantity(book.quantity)
+        validate_quantity(book.quantity)
         return (
             normalize_text(book.title),
             normalize_text(book.author),
@@ -79,21 +72,10 @@ class LibraryInventory:
         and O(L + Y) for a new year. The sorted list can shift Y entries.
         """
 
-        if not isinstance(book, Book):
-            raise TypeError("book must be a Book instance")
-
+        catalog.validate_add(self.books, self.isbn_index, book)
         title, author, category = self._validate_book_fields(book)
         validate_isbn(book.isbn)
-        normalized_isbn = normalize_isbn(book.isbn) if book.isbn is not None else None
-
-        if book.id in self.books:
-            raise DuplicateID(f"Book ID already exists: {book.id}")
-        if normalized_isbn is not None and normalized_isbn in self.isbn_index:
-            raise ValueError(f"ISBN already exists: {normalized_isbn}")
-
-        self.books[book.id] = book
-        if normalized_isbn is not None:
-            self.isbn_index[normalized_isbn] = book.id
+        catalog.add_book(self.books, self.isbn_index, book)
 
         self.title_trie.insert(title, book.id)
         self.author_trie.insert(author, book.id)
@@ -114,15 +96,12 @@ class LibraryInventory:
     def get_book(self, book_id: str) -> Book | None:
         """Return a book by internal ID in O(1) average time."""
 
-        return self.books.get(book_id)
+        return catalog.get_book(self.books, book_id)
 
-    def get_book_by_isbn(self, isbn: str) -> Book | None:
-        """Return a book by normalized ISBN in O(1) average time."""
+    def get_book_by_isbn(self, isbn: str | None) -> Book | None:
+        """Validate and normalize the ISBN, then use average O(1) lookups."""
 
-        if isbn is None:
-            return None
-        book_id = self.isbn_index.get(normalize_isbn(isbn))
-        return self.books.get(book_id) if book_id is not None else None
+        return catalog.get_book_by_isbn(self.books, self.isbn_index, isbn)
 
     def search_title(self, prefix: str) -> list[Book]:
         """Return title-prefix matches sorted by internal ID."""
@@ -176,10 +155,8 @@ class LibraryInventory:
     def update_quantity(self, book_id: str, quantity: int) -> None:
         """Replace quantity and update stock membership in O(1) average time."""
 
-        book = self.books.get(book_id)
-        if book is None:
-            raise NotFound(f"Book ID not found: {book_id}")
-        self._validate_quantity(quantity)
+        book = catalog.require_book(self.books, book_id)
+        validate_quantity(quantity)
 
         updated_book = replace(book, quantity=quantity)
         self.books[book_id] = updated_book
@@ -197,13 +174,8 @@ class LibraryInventory:
         year list.
         """
 
-        book = self.books.get(book_id)
-        if book is None:
-            raise NotFound(f"Book ID not found: {book_id}")
-
-        normalized_isbn = normalize_isbn(book.isbn) if book.isbn is not None else None
-        if normalized_isbn is not None:
-            self.isbn_index.pop(normalized_isbn, None)
+        # Check both dictionaries before changing any secondary index.
+        book = catalog.validate_remove(self.books, self.isbn_index, book_id)
 
         self.title_trie.remove(normalize_text(book.title), book_id)
         self.author_trie.remove(normalize_text(book.author), book_id)
@@ -216,4 +188,4 @@ class LibraryInventory:
             book_id,
         )
 
-        del self.books[book_id]
+        catalog.remove_book(self.books, self.isbn_index, book_id)
