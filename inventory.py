@@ -1,6 +1,7 @@
 """Core integration for the in-memory library inventory."""
 
 from dataclasses import replace
+from heapq import nsmallest
 
 import catalog
 import indexes
@@ -151,6 +152,23 @@ class LibraryInventory:
         """Return zero-quantity books in O(k) time."""
 
         return self._books_for_ids(indexes.get_out_of_stock(self.out_of_stock))
+
+    def top_k_scarce(self, k: int) -> list[Book]:
+        """Return the k lowest-quantity IN-STOCK books, ordered by (quantity, ID).
+
+        Exactly follows the Group 2 dashboard specification: exclude quantity 0.
+        Average O(n_in_stock log k) selection for 0 < k < n_in_stock,
+        O(k) auxiliary heap space; does not mutate indexes or book records.
+        """
+        if type(k) is not int or k < 0:
+            raise ValueError("k must be a nonnegative integer")
+        if k == 0:
+            return []
+        return nsmallest(
+            k,
+            (self.books[book_id] for book_id in self.in_stock),
+            key=lambda book: (book.quantity, book.id),
+        )
 
     def update_quantity(self, book_id: str, quantity: int) -> None:
         """Replace quantity and update stock membership in O(1) average time."""

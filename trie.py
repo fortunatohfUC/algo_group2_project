@@ -15,6 +15,7 @@ class TrieNode:
     def __init__(self):
         self.children = {}  # character -> TrieNode
         self.book_ids = set()  # IDs only for complete indexed strings
+        self.subtree_ids = set()  # Phase 3: cached IDs for prefix queries
 
 
 class Trie:
@@ -32,14 +33,22 @@ class Trie:
         if not isinstance(text, str) or not text:
             raise ValueError("indexed text must be a nonempty string")
         node = self.root
+        path = []
         for char in text:
-            node = node.children.setdefault(char, TrieNode())
+            child = node.children.get(char)
+            if child is None:
+                child = TrieNode()
+                node.children[char] = child
+            node = child
+            path.append(node)
         node.book_ids.add(book_id)
+        for node in path:
+            node.subtree_ids.add(book_id)
 
     def search_prefix(self, prefix: str) -> set:
-        """Return all IDs under prefix; O(m + s + k) average.
+        """Return all IDs under prefix; O(m + k) average with cached IDs.
 
-        m = prefix length; s = visited descendant nodes; k = collected IDs.
+        m = prefix length; k = matching IDs. Uses more memory for faster reads.
         An empty prefix returns an empty set, as specified by the team plan.
         """
         if not isinstance(prefix, str):
@@ -54,13 +63,9 @@ class Trie:
             if node is None:
                 return set()
 
-        result = set()
-        stack = [node]
-        while stack:
-            current = stack.pop()
-            result.update(current.book_ids)
-            stack.extend(current.children.values())
-        return result
+        # Phase 3: read-only copy of the subtree's cached book IDs.
+        # O(m + k), instead of visiting every descendant character node.
+        return node.subtree_ids.copy()
 
     def remove(self, text: str, book_id: str) -> None:
         """Remove an existing association and prune only unused nodes.
@@ -83,6 +88,8 @@ class Trie:
         if book_id not in node.book_ids:
             return
         node.book_ids.remove(book_id)
+        for _, _, child in path:
+            child.subtree_ids.discard(book_id)
 
         # Walk backward; stop if a node is needed for another word or ID.
         for parent, char, child in reversed(path):

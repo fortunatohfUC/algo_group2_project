@@ -200,6 +200,14 @@ def perform_action(inventory: LibraryInventory, choice: str) -> None:
         quantity = ask_number("New total copies (not an amount to add)", 0)
         inventory.update_quantity(book_id, quantity)
         show_books("Quantity updated", [inventory.get_book(book_id)])
+    elif choice == "12":
+        k = ask_number("How many scarce in-stock books? (K)", 3)
+        results = inventory.top_k_scarce(k)
+        print("\nTop-K scarce IN-STOCK books (quantity > 0; fewest copies first):")
+        for rank, book in enumerate(results, start=1):
+            print(f"  {rank}. {book.id}: {book.title} | copies={book.quantity}")
+        if not results:
+            print("  No records requested or available.")
     elif choice == "11":
         book_id = ask("Book ID", "LIB-002")
         book = inventory.get_book(book_id)
@@ -212,7 +220,7 @@ def perform_action(inventory: LibraryInventory, choice: str) -> None:
         else:
             print("Removal canceled.")
     else:
-        print("Choose a number from 0 to 11.")
+        print("Choose a number from 0 to 12.")
 
 
 def interactive_demo() -> None:
@@ -229,7 +237,8 @@ def interactive_demo() -> None:
         print("5. Search title          6. Search author")
         print("7. Search category       8. Search year range")
         print("9. Show stock lists     10. Change total copies")
-        print("11. Remove a book        0. Exit")
+        print("11. Remove a book       12. Top-K scarce in-stock books")
+        print("0. Exit")
         choice = ask("Choose an option", "1")
         if choice == "0":
             print("Demo closed. Changes were kept only in memory.")

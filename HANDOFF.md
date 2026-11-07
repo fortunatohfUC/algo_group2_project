@@ -46,3 +46,33 @@ ChatGPT was used for inherited-design review and explanations of the architectur
 ### Corrections and limitations
 
 In the Codex-assisted integration, the initial code assumed standalone stock/year helper functions, while the first teammate implementation exposed a class. Passing tests against private stand-ins did not establish compatibility with that implementation. The shared interface was reconciled, the stale stock/year test import was repaired, and all 53 tests were rerun against the real modules. An earlier explanation also simplified quantity updates to constant time, overlooking text revalidation when constructing the replacement Book. The handoff now states that qualification. AI output required review against actual code and observed results rather than acceptance from passing stand-in tests alone.
+
+
+## Phase 3 — Optimization and monitoring dashboard handoff (November 7, 2026)
+
+**Scope:** The inherited library catalog remains the source of truth. Phase 3 adds a read-only Top-K query and optimizes read-heavy prefix searches. Previous Phase 2 implementation decisions and documentation remain above for historical context.
+
+**Curveball API:** `LibraryInventory.top_k_low_stock(k)` returns up to `k` book records sorted by `(quantity, book.id)` ascending. A smaller nonnegative quantity is treated as more urgent (out-of-stock first). Ties break deterministically by book ID. `k` must be a nonnegative integer (booleans rejected); `k=0` returns an empty list. There is no persistent mutation, reservation or stock adjustment. This metric must be checked against the exact written Blackboard requirements before final tagging.
+
+**Optimization:** Trie nodes now maintain matching-ID sets along each indexed prefix, making a typical prefix search approximately O(m + r) rather than traversing descendant nodes, where `m` is prefix length and `r` is matching record count. This improves repeated reads but **increases memory consumption and insertion/removal work**. The catalog's three Tries and the rest of the inventory interfaces remain intact. The `trie.py` insertion path also avoids eager construction of temporary `TrieNode` objects.
+
+**Verification:** The 39 inherited root-level unit tests and 7 new Phase 3 tests passed on the prepared project (46 total); the user also observed `Ran 46 tests ... OK` locally in Windows VS Code. The original repository contains an additional `tests/` directory documenting 14 integration tests; it was absent from the separately uploaded project files and must be rerun against the combined GitHub repository before final acceptance.
+
+**Performance:** Run `py benchmark_phase3.py --size 3000` from the repo root. A single controlled environment measurement found Phase 2 query workload 0.213003 s and Phase 3 query workload 0.032281 s (~6.6x faster). These are **separate from** the Windows result observed during the group demonstration: `RECORDS=3000 ADD_SECONDS=0.099452 QUERY_SECONDS=0.034367`. Do not present either as a guaranteed service-level performance improvement. For details and limitations see `PHASE3_PROFILE_REPORT.md`.
+
+**How to hand off:** Preserve the original design document and the repository `tests/` directory. Review the changed files, run all root and integration tests, rerun the benchmark multiple times on identical data/hardware, document any failures, then create the instructor-required Phase 3 tag only after team approval.
+
+### Phase 3 AI usage (separate from inherited Phase 2 AI history)
+
+AI assistance was used to inspect the inherited architecture, suggest a profiling approach, generate a candidate Trie optimization and dynamic Top-K implementation, prepare tests and benchmark scripts, and draft the handoff. The team is responsible for verifying behavior against the actual inherited code, rerunning tests and profiling on its own machine, evaluating the memory trade-off, and correcting documentation. Representative actual requests included: 'What exactly should our Group 2 do for Phase 3?', 'What files do you want from this repository?', and help to run tests, demo, benchmark and prepare files for GitHub upload. A limitation identified during verification was that only 39 inherited component tests were present in the uploaded project files, so the other 14 integration tests were not verified by the AI-assisted run. The team should not mistake the improved synthetic benchmark for production performance, or assume that low stock matches the Blackboard urgency rule without checking.
+
+
+## Official Group 2 Phase 3 correction
+
+Use `LibraryInventory.top_k_scarce(k)`: **only quantity > 0**, sorted by
+`(quantity, book.id)` ascending. The initial example including zero-stock
+books was incorrect under the professor's written Group 2 curveball and has
+been superseded. The version in this package excludes out-of-stock books.
+Run `py benchmark_topk_group2.py --size 10000` and `--size 100000` for
+500 interleaved updates and queries with k=10 and a seeded reproducible dataset.
+Keep the inherited `tests/` folder intact and rerun its integration tests.
