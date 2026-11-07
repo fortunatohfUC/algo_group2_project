@@ -1,8 +1,7 @@
-"""Book records and validation.
+"""Book records, text cleanup and input checks.
 
-One Book represents one edition; quantity is its number of copies.
-IDs keep their uppercase and lowercase letters. Searchable text is cleaned.
-ISBN is optional. Text processing takes O(L) time for L input characters.
+One Book represents one edition, with quantity giving its number of copies.
+Text cleanup takes O(L) time for L input characters. ISBN is optional.
 """
 
 from dataclasses import dataclass
@@ -22,59 +21,76 @@ class InvalidQuantity(ValueError):
     """Quantity must be a whole number of zero or more."""
 
 
+# Clean stored text and search text in the same way so they can match.
+# Lowercase the letters, leave out punctuation, and join words with one space.
+# Punctuation is removed, not replaced: "Sci-Fi" becomes "scifi".
+# Empty text is allowed here; required book fields are checked separately.
 def normalize_text(value: str) -> str:
-    """Use lowercase, remove punctuation and extra spaces; Sci-Fi becomes scifi."""
     if not isinstance(value, str):
         raise ValueError("Searchable text must be a string.")
     characters = []
     for character in value.lower():
-        if not unicodedata.category(character).startswith("P"):  # Unicode categories beginning with P are punctuation.
+        if not unicodedata.category(character).startswith("P"):
             characters.append(character)
     text = "".join(characters)
     return " ".join(text.split())
 
 
+# Keep ISBNs as text so leading zeros are not lost. None means no ISBN.
+# Remove whitespace and hyphens, and change x to X so equivalent ISBNs match.
+# For example, "0-8044 2957-x" becomes "080442957X".
+# This cleans the input; validate_isbn checks whether its format is valid.
 def normalize_isbn(value: Optional[str]) -> Optional[str]:
-    """Remove whitespace and hyphens; convert a final x to X."""
     if value is None:
         return None
-    if not isinstance(value, str):  # ISBNs are strings to preserve leading zeroes.
+    if not isinstance(value, str):
         raise ValueError("ISBN must be a string or None.")
     without_spaces = "".join(value.split())
     return without_spaces.replace("-", "").upper()
 
 
+# Accept only ordinary digits 0 through 9. isdigit() alone also accepts
+# some other numeral characters, so isascii() checks the character set too.
 def _is_digits(value: str) -> bool:
-    """Accept only the ordinary digits 0 through 9."""
     return value.isascii() and value.isdigit()
 
 
+# validate_isbn calls this helper only after checking the length is 10.
+# The first nine characters must be digits; the last may also be X (10).
+# enumerate gives each character and its position, starting at zero.
+# Multiply by weights 10 down to 1. A nonzero remainder after division
+# by 11 means the check digit is wrong.
 def _validate_isbn10(isbn: str) -> None:
-    """Check the characters and use the final digit to check for typing errors."""
     if not _is_digits(isbn[:9]) or isbn[-1] not in "0123456789X":
         raise ValueError("ISBN-10 must contain nine digits and a digit or X.")
     total = 0
     for position, character in enumerate(isbn):
-        digit = 10 if character == "X" else int(character)  # ISBN-10 allows X as a final check digit worth 10.
+        digit = 10 if character == "X" else int(character)
         total += digit * (10 - position)
     if total % 11 != 0:
         raise ValueError("ISBN-10 has an invalid check digit.")
 
 
+# validate_isbn calls this helper only after checking the length is 13.
+# Require digits and the prefix 978 or 979. Multiply digits by 1 and 3
+# in turn: position % 2 tells us whether the position is even or odd.
+# The total must divide evenly by 10 for the check digit to pass.
 def _validate_isbn13(isbn: str) -> None:
-    """Check the prefix and digits, then calculate the ISBN-13 check total."""
     if not _is_digits(isbn) or not isbn.startswith(("978", "979")):
         raise ValueError("ISBN-13 must contain 13 digits and start with 978 or 979.")
     total = 0
     for position, character in enumerate(isbn):
-        weight = 1 if position % 2 == 0 else 3  # ISBN-13 uses alternating weights of 1 and 3.
+        weight = 1 if position % 2 == 0 else 3
         total += int(character) * weight
     if total % 10 != 0:
         raise ValueError("ISBN-13 has an invalid check digit.")
 
 
+# Clean the input, allow None, and choose the check for its length.
+# Success returns None; invalid input raises ValueError. This function
+# does not return the cleaned ISBN, so callers use normalize_isbn for that.
+# A check digit can detect many typing errors, but does not prove a book exists.
 def validate_isbn(value: Optional[str]) -> None:
-    """Accept None or a valid ISBN-10/13; checks do not prove a book exists."""
     isbn = normalize_isbn(value)
     if isbn is None:
         return
@@ -86,14 +102,18 @@ def validate_isbn(value: Optional[str]) -> None:
         raise ValueError("ISBN must have 10 or 13 characters.")
 
 
+# Accept an integer of zero or more; do not convert text such as "3".
+# The exact type check also rejects True and False, which Python can treat
+# like 1 and 0. Zero means no copies in stock, not a deleted record.
 def validate_quantity(quantity: int) -> None:
-    """Accept zero or a positive integer, but not True or False."""
-    if type(quantity) is not int or quantity < 0:  # Reject bool as well as non-integers and negative quantities.
+    if type(quantity) is not int or quantity < 0:
         raise InvalidQuantity("Quantity must be a nonnegative integer.")
 
 
+# Reuse the text cleanup, then reject a blank or punctuation-only result.
+# The name argument identifies the field in the error message.
+# The leading underscore marks this as a helper for this module.
 def _required_text(value: str, name: str) -> str:
-    """Clean a required text field and reject it if nothing is left."""
     text = normalize_text(value)
     if not text:
         raise ValueError(f"{name} must contain nonpunctuation text.")
@@ -116,8 +136,13 @@ class Book:
     quantity: int
     isbn: Optional[str] = None
 
+    # The dataclass calls this after assigning the supplied fields. self is
+    # the Book being created. Check its ID, year, quantity, text, then ISBN.
+    # ID is checked but not cleaned; year has no minimum or maximum here.
+    # object.__setattr__ saves cleaned fields during creation because normal
+    # assignment is blocked by frozen=True. A quantity change uses replace()
+    # to create another Book; inventory must store it and update stock indexes.
     def __post_init__(self) -> None:
-        """Check the fields, then save cleaned text before blocking further edits."""
         if not isinstance(self.id, str) or not self.id.strip():
             raise ValueError("Book ID must be a nonempty string.")
         if type(self.year) is not int:
@@ -128,7 +153,8 @@ class Book:
         category = _required_text(self.category, "Category")
         isbn = normalize_isbn(self.isbn)
         validate_isbn(isbn)
-        object.__setattr__(self, "title", title)  # Normalize only during construction; later field assignments stay blocked.
+        object.__setattr__(self, "title", title)
         object.__setattr__(self, "author", author)
         object.__setattr__(self, "category", category)
         object.__setattr__(self, "isbn", isbn)
+
