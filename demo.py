@@ -1,27 +1,31 @@
 """Run an interactive demo for a small library inventory demonstration with fictional book records."""
 
 from dataclasses import replace
+import json
 
 from inventory import LibraryInventory
 from models import Book, DuplicateID, InvalidQuantity, NotFound
 
 
+SAMPLE_RECORDS = [
+    {"id": "LIB-002", "title": "Field Guide to Stars", "author": "Alex Reed",
+     "category": "Science", "year": 2020, "quantity": 3, "isbn": "9780306406157"},
+    {"id": "LIB-001", "title": "Field Guide to Rivers", "author": "Alex Reed",
+     "category": "Science", "year": 2015, "quantity": 0, "isbn": None},
+    {"id": "LIB-003", "title": "City Stories", "author": "Maya Lane",
+     "category": "Fiction", "year": 2020, "quantity": 2, "isbn": "9780134685991"},
+    {"id": "LIB-004", "title": "City Stories: Volume Two", "author": "Maya Lane",
+     "category": "Fiction", "year": 2024, "quantity": 0, "isbn": None},
+    {"id": "LIB-005", "title": "Garden Notes", "author": "Sam Park",
+     "category": "Reference", "year": 2010, "quantity": 1, "isbn": None},
+    {"id": "LIB-006", "title": "Early Maps", "author": "Sam Park",
+     "category": "History", "year": 2005, "quantity": 4, "isbn": None},
+]
+
+
 def sample_books() -> list[Book]:
-    """Return fictional metadata; the example ISBN is checksum-valid only."""
-    return [
-        Book(id="LIB-002", title="Field Guide to Stars", author="Alex Reed",
-             category="Science", year=2020, quantity=3, isbn="9780306406157"),
-        Book(id="LIB-001", title="Field Guide to Rivers", author="Alex Reed",
-             category="Science", year=2015, quantity=0),
-        Book(id="LIB-003", title="City Stories", author="Maya Lane",
-             category="Fiction", year=2020, quantity=2, isbn="9780134685991"),
-        Book(id="LIB-004", title="City Stories: Volume Two", author="Maya Lane",
-             category="Fiction", year=2024, quantity=0),
-        Book(id="LIB-005", title="Garden Notes", author="Sam Park",
-             category="Reference", year=2010, quantity=1),
-        Book(id="LIB-006", title="Early Maps", author="Sam Park",
-             category="History", year=2005, quantity=4),
-    ]
+    """Build Books from fictional metadata with checksum-valid example ISBNs."""
+    return [Book(**record) for record in SAMPLE_RECORDS]
 
 
 def show_books(label: str, books: list[Book | None]) -> None:
@@ -47,12 +51,14 @@ def expect_error(label, error_type, operation) -> None:
 
 
 def guided_demo() -> None:
-    inventory = LibraryInventory()
-    books = sample_books()
     print("Library Inventory Tracker")
     print("Six fictional records, held in memory. No files or services are changed.")
+    print("\nRaw sample dataset (JSON, before validation and normalization):")
+    print(json.dumps(SAMPLE_RECORDS, indent=2))
 
     input("\nPress Enter to continue: Add six sample books...")
+    inventory = LibraryInventory()
+    books = sample_books()
     for book in books:
         inventory.add_book(book)
     show_books("1. Add six books (four without ISBNs)", list(inventory.books.values()))

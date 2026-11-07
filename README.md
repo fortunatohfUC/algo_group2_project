@@ -25,6 +25,23 @@ Search text is normalized to lowercase with punctuation removed and whitespace c
 | inventory.py | Coordinates all 11 public operations and index updates |
 | demo.py | Demonstrates normal operations and expected errors |
 
+## Data flow
+
+LibraryInventory coordinates validation, catalog changes, and index updates. For searches, the indexes return IDs, which the inventory resolves to the current Book records.
+
+```mermaid
+flowchart TD
+    D[Demo or caller] -->|Operation| I[LibraryInventory]
+    I -->|Validate and normalize| M[Book model and validation helpers]
+    I -->|Read and write records| C[Catalog: Book and ISBN dictionaries]
+    I -->|Update or search| T[Title, author, and category Tries]
+    I -->|Update or search| X[Stock sets and publication-year index]
+    T -->|Matching IDs| I
+    X -->|Matching IDs| I
+    I -->|Resolve IDs| C
+    I -->|Book records or operation result| D
+```
+
 ## Run the demo
 
 Use Python 3.10 or later. No third-party packages are required. Run these commands from the repository root.
@@ -33,7 +50,9 @@ Use Python 3.10 or later. No third-party packages are required. Run these comman
 python3 demo.py
 ```
 
-The demo uses six fictional records. It shows lookups, searches, stock changes, removal, and rejected invalid inputs. Each run starts with a new in-memory inventory.
+Choose mode 1 to try your own inputs, or mode 2 for the guided walkthrough. Mode 2 first shows all six raw sample records, then pauses before each group of operations.
+
+The demo shows lookups, searches, stock changes, removal, and rejected invalid inputs. Each run starts with a new in-memory inventory.
 
 ## Run the tests
 
