@@ -1,4 +1,4 @@
-"""Book records and validation for Person 1, Vern.
+"""Book records and validation for Person 1, Weevern.
 
 One Book represents one edition; quantity is its number of copies.
 IDs keep their uppercase and lowercase letters. Searchable text is cleaned.
