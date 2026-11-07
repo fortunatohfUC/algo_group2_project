@@ -44,7 +44,7 @@ def normalize_isbn(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
     if not isinstance(value, str):
-        raise ValueError("ISBN must be a string or None.")0
+        raise ValueError("ISBN must be a string or None.")
     without_spaces = "".join(value.split())
     return without_spaces.replace("-", "").upper()
 
