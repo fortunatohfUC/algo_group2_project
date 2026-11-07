@@ -1,7 +1,6 @@
 """Run an interactive demo for a small library inventory demonstration with fictional book records."""
 
 from dataclasses import replace
-import json
 
 from inventory import LibraryInventory
 from models import Book, DuplicateID, InvalidQuantity, NotFound
@@ -26,6 +25,19 @@ SAMPLE_RECORDS = [
 def sample_books() -> list[Book]:
     """Build Books from fictional metadata with checksum-valid example ISBNs."""
     return [Book(**record) for record in SAMPLE_RECORDS]
+
+
+def show_sample_records() -> None:
+    """Display all original fields before constructing normalized Books."""
+    print("\nRaw sample dataset (before validation and normalization):")
+    columns = ("id", "title", "author", "category", "year", "quantity", "isbn")
+    row_format = "{:<9} | {:<26} | {:<12} | {:<10} | {:>4} | {:>6} | {:<13}"
+    heading = row_format.format("ID", "Title", "Author", "Category", "Year", "Copies", "ISBN")
+    print(heading)
+    print("-" * len(heading))
+    for record in SAMPLE_RECORDS:
+        values = [record[key] if record[key] is not None else "(none)" for key in columns]
+        print(row_format.format(*values))
 
 
 def show_books(label: str, books: list[Book | None]) -> None:
@@ -53,8 +65,7 @@ def expect_error(label, error_type, operation) -> None:
 def guided_demo() -> None:
     print("Library Inventory Tracker")
     print("Six fictional records, held in memory. No files or services are changed.")
-    print("\nRaw sample dataset (JSON, before validation and normalization):")
-    print(json.dumps(SAMPLE_RECORDS, indent=2))
+    show_sample_records()
 
     input("\nPress Enter to continue: Add six sample books...")
     inventory = LibraryInventory()

@@ -50,7 +50,7 @@ Use Python 3.10 or later. No third-party packages are required. Run these comman
 python3 demo.py
 ```
 
-Choose mode 1 to try your own inputs, or mode 2 for the guided walkthrough. Mode 2 first shows all six raw sample records, then pauses before each group of operations.
+Choose mode 1 to try your own inputs, or mode 2 for the guided walkthrough. Mode 2 first shows all six raw sample records in a table, then pauses before each group of operations.
 
 The demo shows lookups, searches, stock changes, removal, and rejected invalid inputs. Each run starts with a new in-memory inventory.
 
