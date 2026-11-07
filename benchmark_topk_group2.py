@@ -13,7 +13,8 @@ import random
 import time
 from inventory import LibraryInventory
 from models import Book
-
+# Generate a reproducible dataset of N books with realistic stock quantities.
+# Using the same random seed ensures a fair performance comparison.
 
 def make_dataset(n: int, seed: int):
     rng = random.Random(seed)
@@ -21,13 +22,16 @@ def make_dataset(n: int, seed: int):
     return [Book(id=f'LIB-{i:07d}', title=f'Library Edition {i%251}', author=f'Author {i%173}',
                  category=f'Category {i%19}', year=1950+i%75, quantity=quantities[i])
             for i in range(n)]
-
+# Baseline algorithm: Sort all in-stock books by quantity and book ID.
+# Return the first K books after sorting.
+# Time complexity: O(n log n).
 
 def top_k_full_sort(inventory: LibraryInventory, k: int):
     """Baseline: full sort every live in-stock book: O(n log n)."""
     return sorted((inventory.books[bid] for bid in inventory.in_stock),
                   key=lambda b: (b.quantity, b.id))[:k]
-
+# Execute the benchmark for full-sort and heap-based Top-K selection.
+# Measure query times and verify both approaches return identical results.
 
 def run(size=10000, seed=532, queries=500, k=10):
     if size < 0 or queries < 0 or k < 0:
@@ -41,7 +45,8 @@ def run(size=10000, seed=532, queries=500, k=10):
     rng = random.Random(seed + 1)
     changes = [(rng.randrange(size), rng.randrange(0, 51)) for _ in range(queries)] if size else []
     original = [book.quantity for book in books]
-
+# Run 500 queries with interleaved inventory updates.
+# Measure query execution time separately from update time.
     def trial(query_func):
         query_elapsed = 0.0
         update_elapsed = 0.0
