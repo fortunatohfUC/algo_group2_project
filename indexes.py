@@ -1,9 +1,8 @@
 """Stock availability and publication-year indexes for the library PoC.
 
-LibraryInventory passes its own containers to the functions below. The original
-StockYearIndexes class is also available for standalone use and existing tests.
-Do not create a second StockYearIndexes object inside LibraryInventory: its
-existing containers already hold the index data.
+LibraryInventory owns the stock sets, year buckets, and sorted years.
+It passes those containers to the functions below; no separate index object
+is needed.
 
 Stock updates take O(1) average time. Year updates take O(1) average time for
 an existing year, but O(Y) when inserting or deleting a distinct sorted year.
